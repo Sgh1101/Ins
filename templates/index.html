@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>인스타그램 영상 다운로더</title>
+<style>
+  :root { color-scheme: dark; --bg:#0b0d10; --card:#14181d; --card2:#1c2128; --fg:#e7e9ea; --muted:#8b98a5; --accent:#e1306c; --border:#262c34; --grad:linear-gradient(90deg,#f58529,#dd2a7b,#8134af); }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; background:radial-gradient(900px 400px at 50% -100px,#2a1530,transparent),var(--bg); color:var(--fg); font:16px/1.5 system-ui,-apple-system,"Noto Sans KR",sans-serif; }
+  main { max-width:560px; margin:0 auto; padding:40px 20px; }
+  h1 { font-size:1.9rem; margin:0 0 4px; letter-spacing:-.02em; }
+  p.sub { color:var(--muted); margin:0 0 28px; font-size:.95rem; }
+  .row { display:flex; gap:10px; }
+  input { flex:1; min-width:0; height:54px; padding:0 16px; border-radius:16px; border:1px solid var(--border); background:var(--card); color:var(--fg); font-size:1rem; outline:none; transition:border-color .15s; }
+  input:focus { border-color:var(--accent); }
+  input::placeholder { color:var(--muted); }
+  button { height:54px; padding:0 22px; border:0; border-radius:16px; background:var(--grad); color:#fff; font-size:1rem; font-weight:700; cursor:pointer; }
+  button:disabled { opacity:.55; cursor:wait; }
+  .err { color:#ff6b81; margin-top:14px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:20px; padding:14px; margin-top:16px; }
+  .card img { width:100%; border-radius:14px; display:block; }
+  .card h3 { margin:12px 0 2px; font-size:1rem; }
+  .card small { color:var(--muted); }
+  .dl { display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+  .dl a { text-decoration:none; padding:13px 16px; border-radius:14px; background:var(--card2); border:1px solid var(--border); color:var(--accent); font-weight:600; }
+  .dl a:hover { border-color:var(--accent); }
+  footer { margin-top:36px; color:var(--muted); font-size:.8rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>인스타그램 영상 다운로더</h1>
+  <p class="sub">게시물 또는 릴스 링크를 붙여넣으면 영상을 mp4로 받아요. (사진 게시물은 지원하지 않아요)</p>
+  <form id="f" class="row">
+    <input id="url" type="url" placeholder="https://www.instagram.com/reel/XXXXXXXXXXX/" required autofocus>
+    <button id="go">가져오기</button>
+  </form>
+  <div id="err" class="err"></div>
+  <div id="out"></div>
+  <footer>본인이 볼 권리가 있는 콘텐츠만, 개인 용도로 사용하세요. 저작권은 원작자에게 있습니다.</footer>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+$("#f").addEventListener("submit", async e => {
+  e.preventDefault();
+  const url = $("#url").value.trim();
+  $("#err").textContent = ""; $("#out").innerHTML = "";
+  $("#go").disabled = true; $("#go").textContent = "불러오는 중…";
+  try {
+    const r = await fetch("/api/info", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({url})});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "실패");
+    $("#out").innerHTML = d.items.map(it => {
+      const links = it.formats.length
+        ? it.formats.map(f => `<a href="/api/download?url=${encodeURIComponent(url)}&index=${it.index}&format=${encodeURIComponent(f.format_id)}">${esc(f.label)} ${esc(f.size)}</a>`).join("")
+        : `<a href="/api/download?url=${encodeURIComponent(url)}&index=${it.index}">다운로드</a>`;
+      return `<div class="card">
+        ${it.thumbnail ? `<img src="${esc(it.thumbnail)}" alt="" referrerpolicy="no-referrer">` : ""}
+        <h3>${esc(it.title)}</h3><small>@${esc(it.uploader)} ${it.duration ? "· " + Math.round(it.duration) + "초" : ""}</small>
+        <div class="dl">${links}</div></div>`;
+    }).join("");
+  } catch (err) { $("#err").textContent = err.message; }
+  finally { $("#go").disabled = false; $("#go").textContent = "가져오기"; }
+});
+</script>
+</body>
+</html>

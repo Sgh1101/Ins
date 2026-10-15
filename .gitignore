@@ -1,0 +1,5 @@
+__pycache__/
+.venv/
+*.pyc
+# 로그인 쿠키 파일은 절대 커밋하지 않습니다
+cookies*.txt
